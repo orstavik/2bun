@@ -1,0 +1,17 @@
+nav.navbar {
+  margin: 0;
+}
+#homeJumbotron, #buildJumbotron {
+  text-align: center;
+}
+.build-cards {
+  text-align: center;
+}
+#buildBox .container h4 {
+  text-align: center;
+  margin-bottom: 24px;
+}
+#buildBox .component {
+  display: flex;
+  justify-content: space-between;
+}
