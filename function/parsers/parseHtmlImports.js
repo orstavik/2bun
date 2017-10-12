@@ -59,54 +59,45 @@ function commentResolvedLoaders(bundle) {
   });
 }
 
-function parseHtmlImports(manifest, _dependency) {
-  // let _dependency = {
-  //   initiator: initiator,
-  //   dependencies: [],
-  //   url: link,
-  //   loaderTag: parsedLoadingDomUnit
-  // };
-  // if (initiator)
-  //   initiator.dependencies.push(_dependency);
-  manifest.push(_dependency);
-  if (isModule(_dependency.loader)) {
-    _dependency.data = parseJsImports(_dependency.url);
+function parseHtmlImports(manifest, entry) {
+  if (isModule(entry.loader)) {
+    entry.data = parseJsImports(entry.url);
   } else {
-    _dependency.data = request('GET', _dependency.url).getBody().toString();
+    entry.data = request('GET', entry.url).getBody().toString();
   }
-  _dependency.name = _dependency.url.substr(_dependency.url.lastIndexOf('/') + 1);
-  _dependency.parsed = parseDOM(_dependency.data, _dependency.name, _dependency.url);
+  entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
+  entry.parsed = parseDOM(entry.data, entry.name, entry.url);
 
-  let dependencies = _dependency.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
+  let dependencies = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
   dependencies = dependencies.map((loaderTag) => {
     let child = {
-      initiator: _dependency,
-      url: url.resolve(_dependency.url, getDepHtmlLink(loaderTag)),
+      parent: entry,
+      url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
       loaderTag: loaderTag,
       dependencies: []
     };
-    _dependency.dependencies.push(child);
+    entry.dependencies.push(child);
     return child;
     }
   );
   for (let dep of dependencies) {
     let isResolved = manifest.find((file) => file.url === dep.url);
-    console.log(dep.url);
-    if (!isResolved)
+    if (!isResolved) {
+      manifest.push(dep);
       parseHtmlImports(manifest, dep);
+    }
   }
   return manifest;
 }
 
 module.exports = function (link) {
   let entry = {
-    initiator: null,
+    parent: null,
     dependencies: [],
     url: link,
     loaderTag: null
   };
   const manifest = parseHtmlImports([], entry);
-  console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
 };
