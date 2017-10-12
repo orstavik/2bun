@@ -23,13 +23,13 @@ function wrapScriptData(entry) {
       data: " [script module start] " + entry.url,
     },
     {
-      "type": "script",
-      "name": "script",
-      "attribs": {},
-      "children": [
+      type: "script",
+      name: "script",
+      attribs: {},
+      children: [
         {
-          "data": entry.data,
-          "type": "text"
+          data: entry.data,
+          type: "text"
         }
       ]
     },
@@ -49,7 +49,7 @@ let wrapLoaderTagAsAlreadyResolved = function (loaderTag) {
 
 function wrapParsedHtml(entry) {
   return [{type: "comment", data: " [html import start] " + entry.url}]
-    .concat(entry.dataParsed)
+    .concat(entry.domData)
     .concat([{type: "comment", data: " [html import stop] " + entry.url}]);
 }
 
@@ -62,11 +62,20 @@ function getDepHtmlLink(node) {
 }
 
 function bundleHtmlFiles(manifest) {
-  let bundle = manifest[0].parsed;
+  let bundle = manifest[0].domData;
   for (let file of manifest.slice(1)) {
+    let dom;
+    //js file import
+    if (file.jsdata)                      //js import
+      dom = wrapScriptData(file);
+    else if (file.domData)                  //html import
+      dom = wrapParsedHtml(file);
+    else                                  //already resolved or not downloaded import
+      dom = wrapLoaderTagAsAlreadyResolved(file.loaderTag);
+
     //todo this splicing is more difficult as it needs to work with the dom as a tree structure.
     let loaderIndex = bundle.indexOf(file.loaderTag);
-    bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
+    bundle.splice.apply(bundle, [loaderIndex, 1].concat(dom));
   }
   return bundle;
 }
@@ -76,39 +85,36 @@ function getAllImportingTags(dom) {
   return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
 }
 
+function getFileNameFromPath(path) {
+  return path.substr(path.lastIndexOf('/') + 1);
+}
+
 function parseHtmlImports(manifest, entry) {
-  entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
-  // console.log(entry.url);
-  // console.log(manifest.length);
   let isResolved = manifest.find((file) => file.url === entry.url);
   manifest.push(entry);
-  if (isResolved) {
-    // console.log("duplicate");
-    entry.parsed = wrapLoaderTagAsAlreadyResolved(entry.loaderTag);
-    // entry.parsed = htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(entry.loaderTag)} -->`)[0];
+  if (isResolved)
     return;
-  }
 
   if (isModule(entry.loaderTag)) {
-    entry.data = parseJsImports(entry.url);
-  } else {
-    entry.data = request('GET', entry.url).getBody().toString();
+    entry.jsdata = parseJsImports(entry.url);
+  } else if (isScript(entry.loaderTag)) {
+    entry.jsdata = request('GET', entry.url).getBody().toString();
   }
-  // if (entry.url.endsWith(".html"))
-    entry.dataParsed = htmlParser.parseDOM(entry.data);
-  if (isScript(entry.loaderTag))
-    entry.parsed = wrapScriptData(entry);
-  else
-    entry.parsed = wrapParsedHtml(entry);
+  //else if (isCss(entry.loaderTag)) {}
+  //else if (isImage(entry.loaderTag)) {}
+  else if (!entry.loaderTag || isHtmlImport(entry.loaderTag)) {
+    entry.htmlData = request('GET', entry.url).getBody().toString();
+    entry.domData = htmlParser.parseDOM(entry.htmlData);
 
-  let loaderTags = getAllImportingTags(entry.parsed);
-  entry.dependencies = loaderTags.map((loaderTag) => ({
-    parent: entry,
-    url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
-    loaderTag: loaderTag
-  }));
-  for (let dep of entry.dependencies)
-    parseHtmlImports(manifest, dep);
+    const loaderTags = getAllImportingTags(entry.domData);
+    entry.dependencies = loaderTags.map((loaderTag) => ({
+      parent: entry,
+      url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
+      loaderTag: loaderTag
+    }));
+    for (let dep of entry.dependencies)
+      parseHtmlImports(manifest, dep);
+  }
 }
 
 module.exports = function (link) {
