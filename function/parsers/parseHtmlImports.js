@@ -46,16 +46,11 @@ function bundleHtmlFiles(manifest) {
     }
     bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
   }
-  return commentResolvedLoaders(bundle);
-}
-
-function commentResolvedLoaders(bundle) {
+  // return bundle;
   return bundle.map((node) => {
-    if (isScript(node) || isHtmlImport(node)) {
-      return htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(node)} -->`)[0];
-    } else {
+    if (!isScript(node) && !isHtmlImport(node))
       return node;
-    }
+    return htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(node)} -->`)[0];
   });
 }
 
@@ -68,19 +63,13 @@ function parseHtmlImports(manifest, entry) {
   entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
   entry.parsed = parseDOM(entry.data, entry.name, entry.url);
 
-  let dependencies = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
-  dependencies = dependencies.map((loaderTag) => {
-    let child = {
-      parent: entry,
-      url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
-      loaderTag: loaderTag,
-      dependencies: []
-    };
-    entry.dependencies.push(child);
-    return child;
-    }
-  );
-  for (let dep of dependencies) {
+  let loaderTags = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
+  entry.dependencies = loaderTags.map((loaderTag) => ({
+    parent: entry,
+    url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
+    loaderTag: loaderTag
+  }));
+  for (let dep of entry.dependencies) {
     let isResolved = manifest.find((file) => file.url === dep.url);
     if (!isResolved) {
       manifest.push(dep);
@@ -93,11 +82,10 @@ function parseHtmlImports(manifest, entry) {
 module.exports = function (link) {
   let entry = {
     parent: null,
-    dependencies: [],
     url: link,
     loaderTag: null
   };
-  const manifest = parseHtmlImports([], entry);
+  const manifest = parseHtmlImports([entry], entry);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
 };
