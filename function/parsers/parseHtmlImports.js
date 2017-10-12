@@ -37,8 +37,8 @@ function getDepHtmlLink(node) {
 }
 
 function bundleHtmlFiles(manifest) {
-  let bundle = manifest.files[0].parsed;
-  for (let file of manifest.files.slice(1)) {
+  let bundle = manifest[0].parsed;
+  for (let file of manifest.slice(1)) {
     let loaderIndex = bundle.indexOf(file.loaderTag);
     if (isScript(file.loaderTag)) {
       file.data = '<script>' + file.data + '</script>';
@@ -60,18 +60,15 @@ function commentResolvedLoaders(bundle) {
 }
 
 function parseHtmlImports(manifest, initiator, link, parsedLoadingDomUnit) {
-  // let _dependency = manifest.entry;
-  // if (initiator){
-    let _dependency = {
-      initiator: initiator,
-      dependencies: [],
-      url: link,
-      loaderTag: parsedLoadingDomUnit
-    };
-    if (initiator)
-      _dependency.initiator.dependencies.push(_dependency);
-    manifest.files.push(_dependency);
-  // }
+  let _dependency = {
+    initiator: initiator,
+    dependencies: [],
+    url: link,
+    loaderTag: parsedLoadingDomUnit
+  };
+  if (initiator)
+    initiator.dependencies.push(_dependency);
+  manifest.push(_dependency);
   if (isModule(_dependency.loader)) {
     _dependency.data = parseJsImports(_dependency.url);
   } else {
@@ -81,9 +78,9 @@ function parseHtmlImports(manifest, initiator, link, parsedLoadingDomUnit) {
   _dependency.parsed = parseDOM(_dependency.data, _dependency.name, _dependency.url);
 
   let dependencies = _dependency.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
-  dependencies = dependencies.map((dep) => ({ url: url.resolve(_dependency.url, getDepHtmlLink(dep)), parsed: dep }));
+  dependencies = dependencies.map((dep) => ({url: url.resolve(_dependency.url, getDepHtmlLink(dep)), parsed: dep}));
   for (let dep of dependencies) {
-    let isResolved = manifest.files.find((file) => file.url === dep.url); //|| manifest.entry.url === dep.url;
+    let isResolved = manifest.find((file) => file.url === dep.url);
     console.log(dep.url);
     if (!isResolved)
       parseHtmlImports(manifest, _dependency, dep.url, dep.parsed);
@@ -91,15 +88,8 @@ function parseHtmlImports(manifest, initiator, link, parsedLoadingDomUnit) {
   return manifest;
 }
 
-module.exports = function(link) {
-  let manifest = {
-    // entry: {
-    //   dependencies: [],
-    //   url: link,
-    // },
-    files: []
-  };
-  manifest = parseHtmlImports(manifest, null, link, null);
+module.exports = function (link) {
+  const manifest = parseHtmlImports([], null, link, null);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
 };
