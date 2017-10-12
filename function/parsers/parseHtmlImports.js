@@ -40,10 +40,6 @@ function bundleHtmlFiles(manifest) {
   let bundle = manifest[0].parsed;
   for (let file of manifest.slice(1)) {
     let loaderIndex = bundle.indexOf(file.loaderTag);
-    if (isScript(file.loaderTag)) {
-      file.data = '<script>' + file.data + '</script>';
-      file.parsed = htmlParser.parseDOM(file.data);
-    }
     bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
   }
   // return bundle;
@@ -61,7 +57,11 @@ function parseHtmlImports(manifest, entry) {
     entry.data = request('GET', entry.url).getBody().toString();
   }
   entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
-  entry.parsed = parseDOM(entry.data, entry.name, entry.url);
+
+  if (isScript(entry.loaderTag))
+    entry.parsed = htmlParser.parseDOM('<script>' + entry.data + '</script>');
+  else
+    entry.parsed = parseDOM(entry.data, entry.name, entry.url);
 
   let loaderTags = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
   entry.dependencies = loaderTags.map((loaderTag) => ({
