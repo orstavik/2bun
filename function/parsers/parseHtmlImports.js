@@ -40,21 +40,24 @@ function getDepHtmlLink(node) {
 function bundleHtmlFiles(manifest) {
   let bundle = manifest[0].parsed;
   for (let file of manifest.slice(1)) {
-    if (!file.parsed)
-      continue;
     let loaderIndex = bundle.indexOf(file.loaderTag);
     bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
   }
-  // return bundle;
-  return bundle.map((node) => {
-    if (!isScript(node) && !isHtmlImport(node))
-      return node;
-    return htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(node)} -->`)[0];
-  });
+  return bundle;
 }
 
 function parseHtmlImports(manifest, entry) {
   console.log(entry.url);
+  console.log(manifest.length);
+  let isResolved = manifest.find((file) => file.url === entry.url);
+  if (isResolved) {
+    console.log("duplicate");
+    entry.parsed = htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(entry.loaderTag)} -->`)[0];
+    manifest.push(entry);
+    return;
+  }
+  manifest.push(entry);
+
   if (isModule(entry.loader)) {
     entry.data = parseJsImports(entry.url);
   } else {
@@ -63,7 +66,6 @@ function parseHtmlImports(manifest, entry) {
   entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
 
   const wrappedData = wrapDOM(entry.loaderTag, entry.data, entry.name, entry.url);
-  //todo this wrapping should be done after parsing as templating..
   entry.parsed = htmlParser.parseDOM(wrappedData);
 
   let loaderTags = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
@@ -72,13 +74,9 @@ function parseHtmlImports(manifest, entry) {
     url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
     loaderTag: loaderTag
   }));
-  for (let dep of entry.dependencies) {
-    let isResolved = manifest.find((file) => file.url === dep.url);
-    if (!isResolved) {
-      parseHtmlImports(manifest, dep);
-    }
-    manifest.push(dep);
-  }
+  for (let dep of entry.dependencies)
+    parseHtmlImports(manifest, dep);
+
   return manifest;
 }
 
@@ -88,7 +86,7 @@ module.exports = function (link) {
     url: link,
     loaderTag: null
   };
-  const manifest = parseHtmlImports([entry], entry);
+  const manifest = parseHtmlImports([], entry);
   console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
