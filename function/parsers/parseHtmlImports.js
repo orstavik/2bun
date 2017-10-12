@@ -40,23 +40,28 @@ function getDepHtmlLink(node) {
 function bundleHtmlFiles(manifest) {
   let bundle = manifest[0].parsed;
   for (let file of manifest.slice(1)) {
+    //todo this splicing is more difficult as it needs to work with the dom as a tree structure.
     let loaderIndex = bundle.indexOf(file.loaderTag);
     bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
   }
   return bundle;
 }
 
+//todo this function needs to be done on the dom as a tree structure.
+function getAllImportingTags(dom) {
+  return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
+}
+
 function parseHtmlImports(manifest, entry) {
-  console.log(entry.url);
-  console.log(manifest.length);
+  // console.log(entry.url);
+  // console.log(manifest.length);
   let isResolved = manifest.find((file) => file.url === entry.url);
+  manifest.push(entry);
   if (isResolved) {
-    console.log("duplicate");
+    // console.log("duplicate");
     entry.parsed = htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(entry.loaderTag)} -->`)[0];
-    manifest.push(entry);
     return;
   }
-  manifest.push(entry);
 
   if (isModule(entry.loader)) {
     entry.data = parseJsImports(entry.url);
@@ -68,7 +73,7 @@ function parseHtmlImports(manifest, entry) {
   const wrappedData = wrapDOM(entry.loaderTag, entry.data, entry.name, entry.url);
   entry.parsed = htmlParser.parseDOM(wrappedData);
 
-  let loaderTags = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
+  let loaderTags = getAllImportingTags(entry.parsed);
   entry.dependencies = loaderTags.map((loaderTag) => ({
     parent: entry,
     url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
@@ -76,7 +81,6 @@ function parseHtmlImports(manifest, entry) {
   }));
   for (let dep of entry.dependencies)
     parseHtmlImports(manifest, dep);
-
   return manifest;
 }
 
