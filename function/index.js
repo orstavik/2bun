@@ -12,16 +12,19 @@ const TYPE = {
 };
 
 exports.twoBun = (req, resp) => {
+  console.log("server is getting request: " + req.url);
   if (req.url === '/') {
     resp.write('Specify url 2bun');
     resp.end();
   }
   const entryType = req.url.split('.').pop();
   let bundle;
-  if (entryType === 'html')
+  if (req.url.endsWith('html'))
     bundle = parseHtmlImports('http:/' + req.url);
-  else if (entryType === 'js')
+  else if (req.url.endsWith('js'))
     bundle = parseJsImports('http:/' + req.url);
+  else //(req.url.endsWith('js.map'))
+     bundle = "";
 
   resp.setHeader('Content-Type', TYPE[entryType]);
   resp.write(bundle);
