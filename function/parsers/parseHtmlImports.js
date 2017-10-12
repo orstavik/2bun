@@ -16,17 +16,41 @@ function isHtmlImport(node) {
   return node && node.type === 'tag' && node.name === 'link' && node.attribs.rel === 'import';
 }
 
-function wrapDOM(loaderTag, data, name, link) {
-  if (isScript(loaderTag))
-    data = '<script>' + data + '</script>';
-  return  `
-<!-- [importHtml] module ${name} from ${link} -->
+function wrapScriptData(entry) {
+  return [
+    {
+      type: "comment",
+      data: " [script module start] " + entry.url,
+    },
+    {
+      "type": "script",
+      "name": "script",
+      "attribs": {},
+      "children": [
+        {
+          "data": entry.data,
+          "type": "text"
+        }
+      ]
+    },
+    {
+      type: "comment",
+      data: " [script module stop] " + entry.url,
+    }
+  ];
+}
 
-${data}
+let wrapLoaderTagAsAlreadyResolved = function (loaderTag) {
+  return {
+    type: "comment",
+    data: " [resolved module] " + serializeDOM(loaderTag)
+  };
+};
 
-<!-- [importHtml] endmodule ${name} from ${link} -->
-
-`;
+function wrapParsedHtml(entry) {
+  return [{type: "comment", data: " [html import start] " + entry.url}]
+    .concat(entry.dataParsed)
+    .concat([{type: "comment", data: " [html import stop] " + entry.url}]);
 }
 
 function getDepHtmlLink(node) {
@@ -53,25 +77,29 @@ function getAllImportingTags(dom) {
 }
 
 function parseHtmlImports(manifest, entry) {
+  entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
   // console.log(entry.url);
   // console.log(manifest.length);
   let isResolved = manifest.find((file) => file.url === entry.url);
   manifest.push(entry);
   if (isResolved) {
     // console.log("duplicate");
-    entry.parsed = htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(entry.loaderTag)} -->`)[0];
+    entry.parsed = wrapLoaderTagAsAlreadyResolved(entry.loaderTag);
+    // entry.parsed = htmlParser.parseDOM(`<!-- [resolved module] ${serializeDOM(entry.loaderTag)} -->`)[0];
     return;
   }
 
-  if (isModule(entry.loader)) {
+  if (isModule(entry.loaderTag)) {
     entry.data = parseJsImports(entry.url);
   } else {
     entry.data = request('GET', entry.url).getBody().toString();
   }
-  entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
-
-  const wrappedData = wrapDOM(entry.loaderTag, entry.data, entry.name, entry.url);
-  entry.parsed = htmlParser.parseDOM(wrappedData);
+  // if (entry.url.endsWith(".html"))
+    entry.dataParsed = htmlParser.parseDOM(entry.data);
+  if (isScript(entry.loaderTag))
+    entry.parsed = wrapScriptData(entry);
+  else
+    entry.parsed = wrapParsedHtml(entry);
 
   let loaderTags = getAllImportingTags(entry.parsed);
   entry.dependencies = loaderTags.map((loaderTag) => ({
@@ -81,7 +109,6 @@ function parseHtmlImports(manifest, entry) {
   }));
   for (let dep of entry.dependencies)
     parseHtmlImports(manifest, dep);
-  return manifest;
 }
 
 module.exports = function (link) {
@@ -90,7 +117,8 @@ module.exports = function (link) {
     url: link,
     loaderTag: null
   };
-  const manifest = parseHtmlImports([], entry);
+  const manifest = [];
+  parseHtmlImports(manifest, entry);
   console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
