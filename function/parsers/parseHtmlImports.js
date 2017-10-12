@@ -40,6 +40,8 @@ function getDepHtmlLink(node) {
 function bundleHtmlFiles(manifest) {
   let bundle = manifest[0].parsed;
   for (let file of manifest.slice(1)) {
+    if (!file.parsed)
+      continue;
     let loaderIndex = bundle.indexOf(file.loaderTag);
     bundle.splice.apply(bundle, [loaderIndex, 1].concat(file.parsed));
   }
@@ -73,9 +75,9 @@ function parseHtmlImports(manifest, entry) {
   for (let dep of entry.dependencies) {
     let isResolved = manifest.find((file) => file.url === dep.url);
     if (!isResolved) {
-      manifest.push(dep);
       parseHtmlImports(manifest, dep);
     }
+    manifest.push(dep);
   }
   return manifest;
 }
@@ -87,6 +89,7 @@ module.exports = function (link) {
     loaderTag: null
   };
   const manifest = parseHtmlImports([entry], entry);
+  console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
 };
