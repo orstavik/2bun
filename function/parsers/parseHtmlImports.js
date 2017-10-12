@@ -16,8 +16,10 @@ function isHtmlImport(node) {
   return node && node.type === 'tag' && node.name === 'link' && node.attribs.rel === 'import';
 }
 
-function parseDOM(data, name, link) {
-  data = `
+function wrapDOM(loaderTag, data, name, link) {
+  if (isScript(loaderTag))
+    data = '<script>' + data + '</script>';
+  return  `
 <!-- [importHtml] module ${name} from ${link} -->
 
 ${data}
@@ -25,7 +27,6 @@ ${data}
 <!-- [importHtml] endmodule ${name} from ${link} -->
 
 `;
-  return htmlParser.parseDOM(data);
 }
 
 function getDepHtmlLink(node) {
@@ -51,6 +52,7 @@ function bundleHtmlFiles(manifest) {
 }
 
 function parseHtmlImports(manifest, entry) {
+  console.log(entry.url);
   if (isModule(entry.loader)) {
     entry.data = parseJsImports(entry.url);
   } else {
@@ -58,10 +60,9 @@ function parseHtmlImports(manifest, entry) {
   }
   entry.name = entry.url.substr(entry.url.lastIndexOf('/') + 1);
 
-  if (isScript(entry.loaderTag))
-    entry.parsed = htmlParser.parseDOM('<script>' + entry.data + '</script>');
-  else
-    entry.parsed = parseDOM(entry.data, entry.name, entry.url);
+  const wrappedData = wrapDOM(entry.loaderTag, entry.data, entry.name, entry.url);
+  //todo this wrapping should be done after parsing as templating..
+  entry.parsed = htmlParser.parseDOM(wrappedData);
 
   let loaderTags = entry.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
   entry.dependencies = loaderTags.map((loaderTag) => ({
