@@ -9,13 +9,13 @@ const TYPE = {
   html: 'text/html',
   json: 'application/json',
   map: 'application/octet-stream'
-}
+};
 
 exports.twoBun = (req, resp) => {
   if (req.url === '/') {
     resp.write('Specify url 2bun');
     resp.end();
-  };
+  }
   const entryType = req.url.split('.').pop();
   let bundle;
   if (entryType === 'html')
@@ -26,4 +26,4 @@ exports.twoBun = (req, resp) => {
   resp.setHeader('Content-Type', TYPE[entryType]);
   resp.write(bundle);
   resp.end();
-}
+};
