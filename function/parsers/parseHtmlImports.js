@@ -59,15 +59,15 @@ function commentResolvedLoaders(bundle) {
   });
 }
 
-function parseHtmlImports(manifest, initiator, link, parsedLoadingDomUnit) {
-  let _dependency = {
-    initiator: initiator,
-    dependencies: [],
-    url: link,
-    loaderTag: parsedLoadingDomUnit
-  };
-  if (initiator)
-    initiator.dependencies.push(_dependency);
+function parseHtmlImports(manifest, _dependency) {
+  // let _dependency = {
+  //   initiator: initiator,
+  //   dependencies: [],
+  //   url: link,
+  //   loaderTag: parsedLoadingDomUnit
+  // };
+  // if (initiator)
+  //   initiator.dependencies.push(_dependency);
   manifest.push(_dependency);
   if (isModule(_dependency.loader)) {
     _dependency.data = parseJsImports(_dependency.url);
@@ -78,18 +78,35 @@ function parseHtmlImports(manifest, initiator, link, parsedLoadingDomUnit) {
   _dependency.parsed = parseDOM(_dependency.data, _dependency.name, _dependency.url);
 
   let dependencies = _dependency.parsed.filter((node) => (isScript(node) || isHtmlImport(node)));
-  dependencies = dependencies.map((dep) => ({url: url.resolve(_dependency.url, getDepHtmlLink(dep)), parsed: dep}));
+  dependencies = dependencies.map((loaderTag) => {
+    let child = {
+      initiator: _dependency,
+      url: url.resolve(_dependency.url, getDepHtmlLink(loaderTag)),
+      loaderTag: loaderTag,
+      dependencies: []
+    };
+    _dependency.dependencies.push(child);
+    return child;
+    }
+  );
   for (let dep of dependencies) {
     let isResolved = manifest.find((file) => file.url === dep.url);
     console.log(dep.url);
     if (!isResolved)
-      parseHtmlImports(manifest, _dependency, dep.url, dep.parsed);
+      parseHtmlImports(manifest, dep);
   }
   return manifest;
 }
 
 module.exports = function (link) {
-  const manifest = parseHtmlImports([], null, link, null);
+  let entry = {
+    initiator: null,
+    dependencies: [],
+    url: link,
+    loaderTag: null
+  };
+  const manifest = parseHtmlImports([], entry);
+  console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
   return serializeDOM(bundleDOM);
 };
