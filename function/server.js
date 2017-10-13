@@ -11,7 +11,8 @@ function getEntryType(link) {
     css: 'test/css',
     html: 'text/html',
     json: 'application/json',
-    map: 'application/octet-stream'
+    map: 'application/octet-stream',
+    ico: 'image/x-icon'
   };
   return typeMap[link.split("?")[0].split('.').pop()];
 }

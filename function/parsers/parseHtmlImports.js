@@ -41,10 +41,10 @@ function wrapScriptData(entry) {
 }
 
 let wrapLoaderTagAsAlreadyResolved = function (loaderTag) {
-  return {
+  return [{
     type: "comment",
     data: " [resolved module] " + serializeDOM(loaderTag)
-  };
+  }];
 };
 
 function wrapParsedHtml(entry) {
