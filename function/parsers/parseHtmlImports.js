@@ -28,7 +28,7 @@ function wrapScriptData(entry) {
       attribs: {},
       children: [
         {
-          data: entry.data,
+          data: entry.jsdata,
           type: "text"
         }
       ]
@@ -122,7 +122,7 @@ function parseHtmlImports(manifest, entry) {
 
     const loaderTags = getAllImportingTags(entry.domData);
     entry.dependencies = loaderTags.map((loaderTag) => ({
-      parent: entry,
+      // parent: entry,
       url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
       loaderTag: loaderTag
     }));
@@ -133,7 +133,7 @@ function parseHtmlImports(manifest, entry) {
 
 module.exports = function (link, manifest) {
   let entry = {
-    parent: null,
+    // parent: null,
     url: link,
     loaderTag: null
   };
