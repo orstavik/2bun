@@ -62,12 +62,8 @@ function getDepHtmlLink(node) {
 }
 
 function bundleHtmlFiles(manifest) {
-  let bundle;
-  for (let file of manifest) {
-    if (bundle === undefined) {
-      bundle = file.domData;
-      continue;
-    }
+  for (let i = manifest.length-1; i >= 0; i--) {
+    let file = manifest[i];
     let dom;
     //js file import
     if (file.jsdata)                      //js import
@@ -75,25 +71,41 @@ function bundleHtmlFiles(manifest) {
     else if (file.domData)                //html import
       dom = wrapParsedHtml(file);
     else                                  //already resolved or not downloaded import
-      dom = wrapLoaderTagAsAlreadyResolved(file.loaderTag);
+      dom = wrapLoaderTagAsAlreadyResolved(file.loaderTag.node);
 
     //todo this splicing is more difficult as it needs to work with the dom as a tree structure.
-    let loaderIndex = bundle.indexOf(file.loaderTag);
-    bundle.splice.apply(bundle, [loaderIndex, 1].concat(dom));
+
+    // let loaderIndex = bundle.indexOf(file.loaderTag);
+    // bundle.splice.apply(bundle, [loaderIndex, 1].concat(dom));
+    if (!file.loaderTag)
+      return file.domData;
+    let loaderIndex = file.loaderTag.parent.indexOf(file.loaderTag.node);
+    file.loaderTag.parent.splice.apply(file.loaderTag.parent, [loaderIndex, 1].concat(dom));
   }
-  return bundle;
 }
 
 //todo this function needs to be done on the dom as a tree structure.
-function getAllImportingTags(dom) {
-  //each loaderTag is a {parent, index, nodeItself};
-  return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
-}
+// function getAllImportingTags(dom) {
+//   //each loaderTag is a {parent, index, nodeItself};
+//   return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
+// }
 
 //todo this function needs to be done on the dom as a tree structure.
-function getAllImportingTagsFromChildren(dom) {
+function getAllImportingTags(nodes) {
   //each loaderTag is a {parent, index, nodeItself};
-  return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
+  let result = [];
+  for (let i = 0; i < nodes.length; i++) {
+    let node = nodes[i];
+    if (isScript(node) || isHtmlImport(node))
+      result.push({
+        node: node,
+        index: i,
+        parent: nodes
+      });
+    else if (node.children)
+      result = result.concat(getAllImportingTags(node.children, result));
+  }
+  return result;
 }
 
 function getFileNameFromPath(path) {
@@ -109,26 +121,25 @@ function parseHtmlImports(manifest, entry) {
   if (isResolvedOrExcluded)
     return;
 
-  if (isModule(entry.loaderTag)) {
-    entry.jsdata = parseJsImports(entry.url);
-  } else if (isScript(entry.loaderTag)) {
-    entry.jsdata = request('GET', entry.url).getBody().toString();
-  }
-  //else if (isCss(entry.loaderTag)) {}
-  //else if (isImage(entry.loaderTag)) {}
-  else if (!entry.loaderTag || isHtmlImport(entry.loaderTag)) {
+  if (!entry.loaderTag || isHtmlImport(entry.loaderTag.node)) {
     entry.htmlData = request('GET', entry.url).getBody().toString();
     entry.domData = htmlParser.parseDOM(entry.htmlData);
 
     const loaderTags = getAllImportingTags(entry.domData);
     entry.dependencies = loaderTags.map((loaderTag) => ({
       // parent: entry,
-      url: url.resolve(entry.url, getDepHtmlLink(loaderTag)),
+      url: url.resolve(entry.url, getDepHtmlLink(loaderTag.node)),
       loaderTag: loaderTag
     }));
     for (let dep of entry.dependencies)
       parseHtmlImports(manifest, dep);
+  } else if (isModule(entry.loaderTag.node)) {
+    entry.jsdata = parseJsImports(entry.url);
+  } else if (isScript(entry.loaderTag.node)) {
+    entry.jsdata = request('GET', entry.url).getBody().toString();
   }
+  //else if (isCss(entry.loaderTag)) {}
+  //else if (isImage(entry.loaderTag)) {}
 }
 
 module.exports = function (link, manifest) {
