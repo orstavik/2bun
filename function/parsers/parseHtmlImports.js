@@ -62,13 +62,17 @@ function getDepHtmlLink(node) {
 }
 
 function bundleHtmlFiles(manifest) {
-  let bundle = manifest[0].domData;
-  for (let file of manifest.slice(1)) {
+  let bundle;
+  for (let file of manifest) {
+    if (bundle === undefined) {
+      bundle = file.domData;
+      continue;
+    }
     let dom;
     //js file import
     if (file.jsdata)                      //js import
       dom = wrapScriptData(file);
-    else if (file.domData)                  //html import
+    else if (file.domData)                //html import
       dom = wrapParsedHtml(file);
     else                                  //already resolved or not downloaded import
       dom = wrapLoaderTagAsAlreadyResolved(file.loaderTag);
@@ -82,6 +86,13 @@ function bundleHtmlFiles(manifest) {
 
 //todo this function needs to be done on the dom as a tree structure.
 function getAllImportingTags(dom) {
+  //each loaderTag is a {parent, index, nodeItself};
+  return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
+}
+
+//todo this function needs to be done on the dom as a tree structure.
+function getAllImportingTagsFromChildren(dom) {
+  //each loaderTag is a {parent, index, nodeItself};
   return dom.filter((node) => (isScript(node) || isHtmlImport(node)));
 }
 
@@ -90,9 +101,12 @@ function getFileNameFromPath(path) {
 }
 
 function parseHtmlImports(manifest, entry) {
-  let isResolved = manifest.find((file) => file.url === entry.url);
+  let isResolvedOrExcluded = !!manifest.find((file) => {
+    const filePath = entry.url.split("?")[0];
+    return file.url === entry.url || filePath.endsWith(file.excludeUrl);
+  });
   manifest.push(entry);
-  if (isResolved)
+  if (isResolvedOrExcluded)
     return;
 
   if (isModule(entry.loaderTag)) {
@@ -117,13 +131,12 @@ function parseHtmlImports(manifest, entry) {
   }
 }
 
-module.exports = function (link) {
+module.exports = function (link, manifest) {
   let entry = {
     parent: null,
     url: link,
     loaderTag: null
   };
-  const manifest = [];
   parseHtmlImports(manifest, entry);
   console.log(manifest);
   const bundleDOM = bundleHtmlFiles(manifest);
