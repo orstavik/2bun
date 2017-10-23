@@ -5,7 +5,20 @@
       {
         "source": "**/*",
         "function": "twoBun"
+      },
+      {
+        "source": "**/index.html",
+        "function": "twoBun"
+      },
+      {
+        "source": "**/favicon.ico",
+        "destination": "/favicon.ico"
       }
+    ],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
     ]
   }
 }

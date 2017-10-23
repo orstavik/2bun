@@ -6,7 +6,6 @@
     "deasync": "^0.1.10",
     "dom-serializer": "^0.1.0",
     "htmlparser2": "^3.9.2",
-    "request": "^2.83.0",
     "rollup": "^0.50.0",
     "rollup-plugin-weblinks": "^1.0.2",
     "sync-request": "^4.1.0"

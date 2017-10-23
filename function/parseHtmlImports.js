@@ -1,5 +1,7 @@
 const url = require('url');
-const request = require('sync-request');
+const https = require('https');
+const deasync = require('deasync');
+// const request = require('sync-request');
 const htmlParser = require('htmlparser2');
 const serializeDOM = require('dom-serializer');
 const parseJsImports = require('./parseJsImports');
@@ -112,6 +114,8 @@ function getFileNameFromPath(path) {
   return path.substr(path.lastIndexOf('/') + 1);
 }
 
+let I = 0;
+
 function parseHtmlImports(manifest, entry) {
   let isResolvedOrExcluded = !!manifest.find((file) => {
     const filePath = entry.url.split("?")[0];
@@ -122,7 +126,7 @@ function parseHtmlImports(manifest, entry) {
     return;
 
   if (!entry.loaderTag || isHtmlImport(entry.loaderTag.node)) {
-    entry.htmlData = request('GET', entry.url).getBody().toString();
+    entry.htmlData = syncGet(entry.url);
     entry.domData = htmlParser.parseDOM(entry.htmlData);
 
     const loaderTags = getAllImportingTags(entry.domData);
@@ -136,10 +140,25 @@ function parseHtmlImports(manifest, entry) {
   } else if (isModule(entry.loaderTag.node)) {
     entry.jsdata = parseJsImports(entry.url);
   } else if (isScript(entry.loaderTag.node)) {
-    entry.jsdata = request('GET', entry.url).getBody().toString();
+    entry.jsdata = syncGet(entry.url);
   }
   //else if (isCss(entry.loaderTag)) {}
   //else if (isImage(entry.loaderTag)) {}
+}
+
+function syncGet(link) {
+  let end = false;
+  let data = '';
+  https.get(link, (newResp) => {
+    newResp.on('data', (chunk) => {
+      data += chunk;
+    }).on('end', () => {
+      console.log(link, I++, Buffer.byteLength(data,'utf8'));
+      end = true;
+    });
+  });
+  deasync.loopWhile(() => !end);
+  return data;
 }
 
 module.exports = function (link, manifest) {
