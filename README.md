@@ -12,7 +12,7 @@ First you need to clone repository and install dependencies:
 ```
 git clone https://gitlab.com/orstavik/two-bun-no
 cd two-bun-no
-cd functions
+cd function
 npm install
 cd..
 ```
