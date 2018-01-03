@@ -16,7 +16,7 @@ cd functions
 npm install
 cd..
 ```
-To just serve the service locally you need to use [firebase tools]:
+To just serve the service locally you need to use [firebase tools](https://www.npmjs.com/package/firebase-tools):
 ```
 npm install -g firebase-tools
 firebase serve --only functions,hosting
